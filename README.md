@@ -33,7 +33,7 @@ customer-churn-prediction/
 
 ### 1. Clone the repository:
 ```bash
-git clone https://github.com/YOUR_USERNAME/customer-churn-prediction.git
+git clone https://github.com/ANAND9051/customer-churn-prediction.git
 cd customer-churn-prediction
 ```
 
