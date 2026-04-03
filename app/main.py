@@ -7,8 +7,10 @@ import os
 # --- Configuration & Loading ---
 st.set_page_config(page_title="Customer Churn Predictor", page_icon="📉")
 
-MODEL_PATH = "customer-churn-prediction/models/churn_model.pkl"
-FEATURES_PATH = "customer-churn-prediction/models/feature_names.pkl"
+# Dynamically find the project base directory
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+MODEL_PATH = os.path.join(BASE_DIR, "models", "churn_model.pkl")
+FEATURES_PATH = os.path.join(BASE_DIR, "models", "feature_names.pkl")
 
 @st.cache_resource
 def load_artifacts():
@@ -29,6 +31,20 @@ This tool helps businesses proactively identify 'at-risk' customers and offer re
 
 if model is None:
     st.error("Model artifacts not found. Please run 'train.py' first.")
+    # This section helps us find the path error on the server
+    with st.expander("🛠️ Debug Information (Check this to fix the error)"):
+        st.write(f"**Current Directory (Server):** {os.getcwd()}")
+        st.write(f"**Main Script Path:** {os.path.abspath(__file__)}")
+        st.write(f"**Calculated Project Root:** {BASE_DIR}")
+        st.write(f"**Searching for Model at:** {MODEL_PATH}")
+        st.write(f"**Does Model Path Exist?** {'✅ Yes' if os.path.exists(MODEL_PATH) else '❌ No'}")
+        
+        # Show all files so we can see where the 'models' folder actually is
+        st.write("**Files found in Project Root:**")
+        if os.path.exists(BASE_DIR):
+            st.write(os.listdir(BASE_DIR))
+        else:
+            st.write("Project Root directory not found!")
     st.stop()
 
 # --- Sidebar Inputs ---
