@@ -14,13 +14,22 @@ FEATURES_PATH = os.path.join(BASE_DIR, "models", "feature_names.pkl")
 
 @st.cache_resource
 def load_artifacts():
-    if os.path.exists(MODEL_PATH) and os.path.exists(FEATURES_PATH):
+    # Check if both files exist
+    model_exists = os.path.exists(MODEL_PATH)
+    features_exists = os.path.exists(FEATURES_PATH)
+    
+    if not model_exists or not features_exists:
+        return None, None, model_exists, features_exists
+        
+    try:
         model = joblib.load(MODEL_PATH)
         features = joblib.load(FEATURES_PATH)
-        return model, features
-    return None, None
+        return model, features, True, True
+    except Exception as e:
+        st.error(f"Error loading model: {e}")
+        return None, None, True, True
 
-model, feature_names = load_artifacts()
+model, feature_names, m_ok, f_ok = load_artifacts()
 
 # --- App UI ---
 st.title("🛡️ Customer Churn Prediction System")
@@ -30,21 +39,11 @@ This tool helps businesses proactively identify 'at-risk' customers and offer re
 """)
 
 if model is None:
-    st.error("Model artifacts not found. Please run 'train.py' first.")
-    # This section helps us find the path error on the server
-    with st.expander("🛠️ Debug Information (Check this to fix the error)"):
-        st.write(f"**Current Directory (Server):** {os.getcwd()}")
-        st.write(f"**Main Script Path:** {os.path.abspath(__file__)}")
-        st.write(f"**Calculated Project Root:** {BASE_DIR}")
-        st.write(f"**Searching for Model at:** {MODEL_PATH}")
-        st.write(f"**Does Model Path Exist?** {'✅ Yes' if os.path.exists(MODEL_PATH) else '❌ No'}")
-        
-        # Show all files so we can see where the 'models' folder actually is
-        st.write("**Files found in Project Root:**")
-        if os.path.exists(BASE_DIR):
-            st.write(os.listdir(BASE_DIR))
-        else:
-            st.write("Project Root directory not found!")
+    if not m_ok:
+        st.error("❌ **Error:** `churn_model.pkl` is missing from the `models/` folder on GitHub.")
+    if not f_ok:
+        st.error("❌ **Error:** `feature_names.pkl` is missing from the `models/` folder on GitHub.")
+    st.info("💡 **Tip:** Try running `git add models/* --force` and then pushing to GitHub.")
     st.stop()
 
 # --- Sidebar Inputs ---
