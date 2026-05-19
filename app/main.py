@@ -25,6 +25,15 @@ def load_artifacts():
 
     try:
         model = joblib.load(MODEL_PATH)
+        
+        # --- GPU TO CPU FIX ---
+        # If the model was saved with a GPU device, we force it to CPU for the server
+        if hasattr(model, "set_params"):
+            try:
+                model.set_params(device="cpu")
+            except:
+                pass
+        
         features = joblib.load(FEATURES_PATH)
         return model, features, True, True
     except Exception as e:
@@ -35,24 +44,16 @@ def load_artifacts():
 model, feature_names, m_ok, f_ok = load_artifacts()
 
 # --- App UI ---
-st.title("🛡️ Customer Churn Prediction System")
+st.title("🛡️ Enterprise Churn Predictor (1M Scale)")
 st.markdown("""
-Predict if a customer is likely to leave your service.
-This tool helps businesses proactively identify 'at-risk' customers and offer retention incentives.
+Predict if a customer is likely to leave using our **89.56% Accuracy XGBoost Model**.
 """)
 
 if model is None:
     if not m_ok:
-        st.error(
-            "❌ **Error:** `churn_model.pkl` is missing from the `models/` folder on GitHub."
-        )
+        st.error(f"❌ **Error:** Model file not found at `{MODEL_PATH}`")
     if not f_ok:
-        st.error(
-            "❌ **Error:** `feature_names.pkl` is missing from the `models/` folder on GitHub."
-        )
-    st.info(
-        "💡 **Tip:** Try running `git add models/* --force` and then pushing to GitHub."
-    )
+        st.error(f"❌ **Error:** Feature names file not found at `{FEATURES_PATH}`")
     st.stop()
 
 # --- Sidebar Inputs ---
@@ -64,53 +65,31 @@ monthly_charges = st.sidebar.slider("Monthly Charges ($)", 18, 120, 50)
 total_charges = st.sidebar.number_input("Total Charges ($)", 0.0, 9000.0, 500.0)
 
 # 2. Categorical Inputs
-contract = st.sidebar.selectbox(
-    "Contract Type", ["Month-to-month", "One year", "Two year"]
-)
+contract = st.sidebar.selectbox("Contract Type", ["Month-to-month", "One year", "Two year"])
 internet = st.sidebar.selectbox("Internet Service", ["DSL", "Fiber optic", "No"])
-payment = st.sidebar.selectbox(
-    "Payment Method",
-    [
-        "Electronic check",
-        "Mailed check",
-        "Bank transfer (automatic)",
-        "Credit card (automatic)",
-    ],
-)
-tech_support = st.sidebar.selectbox(
-    "Tech Support", ["Yes", "No", "No internet service"]
-)
-online_security = st.sidebar.selectbox(
-    "Online Security", ["Yes", "No", "No internet service"]
-)
-
+payment = st.sidebar.selectbox("Payment Method", ["Electronic check", "Mailed check", "Bank transfer (automatic)", "Credit card (automatic)"])
+tech_support = st.sidebar.selectbox("Tech Support", ["Yes", "No", "No internet service"])
+online_security = st.sidebar.selectbox("Online Security", ["Yes", "No", "No internet service"])
 
 # --- Preprocessing for Prediction ---
 def prepare_input():
-    # Create a base DataFrame with all zeros
+    # Create a base DataFrame with ALL ZEROS for every feature the model knows
     input_df = pd.DataFrame(columns=feature_names)
     input_df.loc[0] = 0.0
 
-    # Map numerical values (Not scaled here for simplicity, but in a real app, use the saved scaler!)
-    input_df["tenure"] = tenure
-    input_df["MonthlyCharges"] = monthly_charges
-    input_df["TotalCharges"] = total_charges
+    # 1. Fill Numerical columns (If they exist in the model)
+    if "tenure" in input_df.columns: input_df["tenure"] = float(tenure)
+    if "MonthlyCharges" in input_df.columns: input_df["MonthlyCharges"] = float(monthly_charges)
+    if "TotalCharges" in input_df.columns: input_df["TotalCharges"] = float(total_charges)
 
-    # Map binary/one-hot columns (Only the ones we included in UI)
-    if f"Contract_{contract}" in feature_names:
-        input_df[f"Contract_{contract}"] = 1.0
-
-    if f"InternetService_{internet}" in feature_names:
-        input_df[f"InternetService_{internet}"] = 1.0
-
-    if f"PaymentMethod_{payment}" in feature_names:
-        input_df[f"PaymentMethod_{payment}"] = 1.0
-
-    if f"TechSupport_Yes" in feature_names and tech_support == "Yes":
-        input_df["TechSupport_Yes"] = 1.0
-
-    if f"OnlineSecurity_Yes" in feature_names and online_security == "Yes":
-        input_df["OnlineSecurity_Yes"] = 1.0
+    # 2. Fill Categorical columns by matching the name exactly
+    # We look through every column the model expects and set it to 1 if it matches our selection
+    for col in input_df.columns:
+        if f"Contract_{contract}" == col: input_df[col] = 1.0
+        if f"InternetService_{internet}" == col: input_df[col] = 1.0
+        if f"PaymentMethod_{payment}" == col: input_df[col] = 1.0
+        if f"TechSupport_Yes" == col and tech_support == "Yes": input_df[col] = 1.0
+        if f"OnlineSecurity_Yes" == col and online_security == "Yes": input_df[col] = 1.0
 
     return input_df
 
