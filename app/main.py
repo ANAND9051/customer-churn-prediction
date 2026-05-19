@@ -100,7 +100,10 @@ if st.button("🔍 Predict Churn Risk"):
 
     # Make prediction
     prediction = model.predict(input_data)[0]
-    probability = model.predict_proba(input_data)[0][1]
+    # FIX: Cast to float to prevent Streamlit type errors
+    probability = float(model.predict_proba(input_data)[0][1])
+    # Ensure it stays within 0.0 to 1.0 range
+    probability = max(0.0, min(1.0, probability))
 
     st.divider()
 
